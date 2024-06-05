@@ -37,19 +37,16 @@ args = dict(
     mp_dtype = "bfloat16",
     wandb = True,
     mixup = True,
-    net = "vit",
+    net = "res34",
     bs = 512,
     size = 32,
     n_epochs = 200,
     patch = 4,
-    dim = 64,
+    dim = 512,
     convkernel = 8,
     num_classes=10,
-
-    sparse_heads=8,
-    mlp_dim = 512 * 8,
-    sparse=True,
-    compile=False,
+    geo=False,
+    compile=True,
 )
 
 
@@ -58,13 +55,6 @@ def loss_fn(net_fwd, inputs, targets):
     loss = nn.CrossEntropyLoss()(pred_labels, targets)
     return loss, pred_labels
 
-
-def progress_bar_log(loss, preds, targets, dataloader):
-    _, predicted = preds.max(1)
-    total += targets.size(0)
-    correct += predicted.eq(targets).sum().item()
-
-    progress_bar(batch_idx, len(dataloader), 'Loss: %.3f | Acc: %.3f%% (%d/%d)' % (loss/(batch_idx+1), 100.*correct/total, correct, total))
     
 
 args = SimpleNamespace(**args)
@@ -96,7 +86,7 @@ list_acc = []
 
 if args.wandb:
     import wandb
-    watermark = "{}_Sp{}_lr{}".format(args.net, args.sparse, args.lr)
+    watermark = "{}_Sp{}_lr{}".format(args.net, args.geo, args.lr)
     wandb.init(project="cifar10-challange", name=watermark)
     wandb.config.update(args)
 
@@ -105,7 +95,7 @@ if args.wandb:
     
 for epoch in range(args.start_epoch, args.n_epochs):
     start = time.time()
-    trainloss = train(args, epoch, net, net_forward, trainloader, optimizer, scaler)
+    trainloss = train(args, epoch, net, net_forward, trainloader, optimizer, scaler, loss_fn=loss_fn)
     val_loss, acc = test(args, epoch, net, net_forward, testloader, optimizer, scaler)
     
     scheduler.step(epoch-1) # step cosine scheduling

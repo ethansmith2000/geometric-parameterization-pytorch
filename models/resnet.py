@@ -21,12 +21,9 @@ class BasicBlock(nn.Module):
         self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, stride=1, padding=1, bias=False)
         self.bn2 = nn.BatchNorm2d(planes)
 
-        self.shortcut = nn.Sequential()
+        self.shortcut = nn.Identity()
         if stride != 1 or in_planes != self.expansion*planes:
-            self.shortcut = nn.Sequential(
-                nn.Conv2d(in_planes, self.expansion*planes, kernel_size=1, stride=stride, bias=False),
-                nn.BatchNorm2d(self.expansion*planes)
-            )
+            self.shortcut = Shortcut(in_planes, self.expansion*planes, stride=stride)
 
     def forward(self, x):
         out = F.relu(self.bn1(self.conv1(x)))
@@ -34,6 +31,17 @@ class BasicBlock(nn.Module):
         out += self.shortcut(x)
         out = F.relu(out)
         return out
+
+
+class Shortcut(torch.nn.Module):
+
+    def __init__(self, in_planes, planes, stride=1):
+        super(Shortcut, self).__init__()
+        self.conv1 = nn.Conv2d(in_planes, planes, kernel_size=1, stride=stride, bias=False)
+        self.bn1 = nn.BatchNorm2d(planes)
+
+    def forward(self, x):
+        return self.bn1(self.conv1(x))
 
 
 class Bottleneck(nn.Module):
@@ -48,12 +56,9 @@ class Bottleneck(nn.Module):
         self.conv3 = nn.Conv2d(planes, self.expansion*planes, kernel_size=1, bias=False)
         self.bn3 = nn.BatchNorm2d(self.expansion*planes)
 
-        self.shortcut = nn.Sequential()
+        self.shortcut = nn.Identity()
         if stride != 1 or in_planes != self.expansion*planes:
-            self.shortcut = nn.Sequential(
-                nn.Conv2d(in_planes, self.expansion*planes, kernel_size=1, stride=stride, bias=False),
-                nn.BatchNorm2d(self.expansion*planes)
-            )
+            self.shortcut = Shortcut(in_planes, self.expansion*planes, stride=stride)
 
     def forward(self, x):
         out = F.relu(self.bn1(self.conv1(x)))

@@ -5,6 +5,7 @@ import torch
 import torch.nn.functional as F
 from torch.nn.modules.utils import _reverse_repeat_tuple, _pair
 from torch.nn import init
+from copy import deepcopy
 
 def hyperspherical_to_cartesian(angles, radius):
     '''
@@ -261,3 +262,28 @@ class GeoConv2d(GeoConvNd):
         kernel = weight.reshape(self.in_channels, *self.kernel_size, self.out_channels)
         kernel = kernel.permute(3, 0, 1, 2)
         return self._conv_forward(input, kernel, self.bias) * self.radius
+
+
+
+
+def patch(model):
+    for n in list(model._modules.keys()):
+        # only one depth down, and skip self
+        if "." in n or n=="":
+            continue
+
+        m = model._modules[n]
+
+        if isinstance(m, nn.Linear):
+            base_layer = deepcopy(m)
+            delattr(model, n)
+            model.add_module(n, GeoLinear(base_layer.in_features, base_layer.out_features, bias=base_layer.bias is not None))
+        if isinstance(m, nn.Conv2d):
+            base_layer = deepcopy(m)
+            delattr(model, n)
+            model.add_module(n, GeoConv2d(base_layer.in_channels, base_layer.out_channels, base_layer.kernel_size, stride=base_layer.stride, padding=base_layer.padding, dilation=base_layer.dilation, groups=base_layer.groups, bias=base_layer.bias is not None, padding_mode=base_layer.padding_mode))
+
+        if isinstance(m, nn.Module):
+            names = [name for name, layer in m.named_modules() if name != ""]
+            if len(names) > 0:
+                patch(m)
